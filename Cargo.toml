@@ -24,8 +24,11 @@ exclude = [
 ]
 
 [profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
 opt-level = 3
-# debug = 2
+debug   = false
 
 [profile.dev]
 # https://jakedeichert.com/blog/reducing-rust-incremental-compilation-times-on-macos-by-70-percent/
