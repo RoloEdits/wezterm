@@ -16,6 +16,11 @@ use termwiz::terminal::{ScreenSize, Terminal};
 use umask::UmaskSaver;
 use wezterm_gui_subcommands::*;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 mod asciicast;
 mod cli;
 

@@ -40,6 +40,8 @@ wezterm-client = { path = "../wezterm-client" }
 wezterm-gui-subcommands = { path = "../wezterm-gui-subcommands" }
 wezterm-term = { path = "../term" }
 
+mimalloc = "0.1.39"
+
 [target."cfg(unix)".dependencies]
 termios = "0.3"
 
