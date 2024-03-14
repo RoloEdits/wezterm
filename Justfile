@@ -9,6 +9,14 @@ build:
 	git submodule update --init --recursive
 	RUSTFLAGS='-C target-cpu=native' cargo build --release --all
 
+build-pgo:
+	git submodule update --init --recursive
+	RUSTFLAGS='-C target-cpu=native' cargo pgo build -- --all
+	./target/x86_64-pc-windows-msvc/release/wezterm.exe
+
+optimize:
+	RUSTFLAGS='-C target-cpu=native' cargo pgo optimize
+
 [windows]
 install:
 	mkdir {{path}}
