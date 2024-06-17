@@ -340,6 +340,7 @@ pub enum PaneSelectMode {
     SwapWithActiveKeepFocus,
     MoveToNewTab,
     MoveToNewWindow,
+    MoveToFloatingPane
 }
 
 impl Default for PaneSelectMode {
@@ -577,8 +578,10 @@ pub enum KeyAssignment {
     QuitApplication,
     SpawnCommandInNewTab(SpawnCommand),
     SpawnCommandInNewWindow(SpawnCommand),
+    SpawnCommandInNewFloatingPane(SpawnCommand),
     SplitHorizontal(SpawnCommand),
     SplitVertical(SpawnCommand),
+    ToggleFloatingPane,
     ShowLauncher,
     ShowLauncherArgs(LauncherActionArgs),
     ClearScrollback(ScrollbackEraseMode),
@@ -646,6 +649,8 @@ pub enum KeyAssignment {
     PromptInputLine(PromptInputLine),
     InputSelector(InputSelector),
     Confirmation(Confirmation),
+    MoveFloatingPaneToHorizontalSplit,
+    MoveFloatingPaneToVerticalSplit,
 }
 impl_lua_conversion_dynamic!(KeyAssignment);
 
