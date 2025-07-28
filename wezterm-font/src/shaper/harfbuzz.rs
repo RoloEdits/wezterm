@@ -542,17 +542,22 @@ impl HarfbuzzShaper {
 
         if !shaped_any {
             if let Some(opt_pair) = self.fonts.get(font_idx) {
-                if direct_clusters == 0 {
-                    // If we've never shaped anything from this font, and we didn't
-                    // shape it just now, then we're probably a fallback font from
-                    // the system and unlikely to be useful to keep around, so we
-                    // unload it.
-                    log::trace!(
-                        "Shaper didn't resolve glyphs from {:?}, so unload it",
-                        self.handles[font_idx]
-                    );
-                    opt_pair.borrow_mut().take();
-                } else if let Some(pair) = &mut *opt_pair.borrow_mut() {
+                // HACK: This can cause a performance issue with many missing glyphs, which end up having to reload the
+                // fallback font over and over each render. Instead, we just keep all fonts loaded around.
+
+                // if direct_clusters == 0 {
+                //     // If we've never shaped anything from this font, and we didn't
+                //     // shape it just now, then we're probably a fallback font from
+                //     // the system and unlikely to be useful to keep around, so we
+                //     // unload it.
+                //     log::trace!(
+                //         "Shaper didn't resolve glyphs from {:?}, so unload it",
+                //         self.handles[font_idx]
+                //     );
+                //     opt_pair.borrow_mut().take();
+                // } else
+
+                if let Some(pair) = &mut *opt_pair.borrow_mut() {
                     // We shaped something: mark this pair up so that it sticks around
                     pair.shaped_any = true;
                 }
