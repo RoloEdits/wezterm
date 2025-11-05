@@ -324,7 +324,11 @@ impl std::fmt::Debug for HeapQuadAllocator {
 impl HeapQuadAllocator {
     pub fn apply_to(&self, other: &mut TripleLayerQuadAllocator) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
-        for (layer_num, quads) in [(0, &self.layer0), (1, &self.layer1), (2, &self.layer2)] {
+        for (layer_num, quads) in [
+            (0, self.layer0.as_slice()),
+            (1, self.layer1.as_slice()),
+            (2, self.layer2.as_slice()),
+        ] {
             for quad in quads {
                 other.extend_with(layer_num, &quad.to_vertices());
             }
