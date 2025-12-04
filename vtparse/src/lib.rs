@@ -519,7 +519,7 @@ impl VTParser {
         }
     }
 
-    fn action(&mut self, action: Action, param: u8, actor: &mut dyn VTActor) {
+    fn action(&mut self, action: Action, param: u8, actor: &mut impl VTActor) {
         match action {
             Action::None | Action::Ignore => {}
             Action::Print => actor.print(param as char),
@@ -666,7 +666,7 @@ impl VTParser {
     // We use the REPLACEMENT_CHARACTER for invalid sequences.
     // We return to the ground state after each codepoint, successful
     // or otherwise.
-    fn next_utf8(&mut self, actor: &mut dyn VTActor, byte: u8) {
+    fn next_utf8(&mut self, actor: &mut impl VTActor, byte: u8) {
         struct Decoder {
             codepoint: Option<char>,
         }
@@ -719,7 +719,7 @@ impl VTParser {
     /// Parse a single byte.  This may result in a call to one of the
     /// methods on the provided `actor`.
     #[inline(always)]
-    pub fn parse_byte(&mut self, byte: u8, actor: &mut dyn VTActor) {
+    pub fn parse_byte(&mut self, byte: u8, actor: &mut impl VTActor) {
         // While in utf-8 parsing mode, co-opt the vt state
         // table and instead use the utf-8 state table from the
         // parser.  It will drop us back into the Ground state
@@ -747,7 +747,7 @@ impl VTParser {
     /// Parse a sequence of bytes.  The sequence need not be complete.
     /// This may result in some number of calls to the methods on the
     /// provided `actor`.
-    pub fn parse(&mut self, bytes: &[u8], actor: &mut dyn VTActor) {
+    pub fn parse(&mut self, bytes: &[u8], actor: &mut impl VTActor) {
         for b in bytes {
             self.parse_byte(*b, actor);
         }
