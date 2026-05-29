@@ -1,5 +1,5 @@
 use crate::quad::Vertex;
-use anyhow::anyhow;
+use anyhow::bail;
 use config::{ConfigHandle, GpuInfo, WebGpuPowerPreference};
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -188,13 +188,14 @@ pub fn adapter_info_to_gpu_info(info: wgpu::AdapterInfo) -> GpuInfo {
     }
 }
 
-fn compute_compatibility_list(
+async fn compute_compatibility_list(
     instance: &wgpu::Instance,
     backends: wgpu::Backends,
-    surface: &wgpu::Surface,
+    surface: &wgpu::Surface<'_>,
 ) -> Vec<String> {
     instance
         .enumerate_adapters(backends)
+        .await
         .into_iter()
         .map(|a| {
             let info = adapter_info_to_gpu_info(a.get_info());
@@ -235,7 +236,7 @@ impl WebGpuState {
         let mut adapter: Option<wgpu::Adapter> = None;
 
         if let Some(preference) = &config.webgpu_preferred_adapter {
-            for a in instance.enumerate_adapters(backends) {
+            for a in instance.enumerate_adapters(backends).await {
                 if !a.is_surface_supported(&surface) {
                     let info = adapter_info_to_gpu_info(a.get_info());
                     log::warn!("{} is not compatible with surface", info.to_string());
@@ -277,7 +278,7 @@ impl WebGpuState {
             }
 
             if adapter.is_none() {
-                let adapters = compute_compatibility_list(&instance, backends, &surface);
+                let adapters = compute_compatibility_list(&instance, backends, &surface).await;
                 log::warn!(
                     "Your webgpu preferred adapter '{}' was either not \
                      found or is not compatible with your display. Available:\n{}",
@@ -304,13 +305,16 @@ impl WebGpuState {
             );
         }
 
-        let adapter = adapter.ok_or_else(|| {
-            let adapters = compute_compatibility_list(&instance, backends, &surface);
-            anyhow!(
-                "no compatible adapter found. Available:\n{}",
-                adapters.join("\n")
-            )
-        })?;
+        let adapter = match adapter {
+            Some(adapter) => adapter,
+            None => {
+                let adapters = compute_compatibility_list(&instance, backends, &surface).await;
+                bail!(
+                    "no compatible adapter found. Available:\n{}",
+                    adapters.join("\n")
+                );
+            }
+        };
 
         let adapter_info = adapter.get_info();
         log::trace!("Using adapter: {adapter_info:?}");
@@ -367,10 +371,7 @@ impl WebGpuState {
         // compositor still handles vsync so there is no tearing.
         // Fifo blocks for up to one vsync interval per window, which
         // serializes rendering across windows.
-        let present_mode = if caps
-            .present_modes
-            .contains(&wgpu::PresentMode::Mailbox)
-        {
+        let present_mode = if caps.present_modes.contains(&wgpu::PresentMode::Mailbox) {
             wgpu::PresentMode::Mailbox
         } else {
             wgpu::PresentMode::Fifo
@@ -423,7 +424,7 @@ impl WebGpuState {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         });
         let texture_linear_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -432,7 +433,7 @@ impl WebGpuState {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
 
@@ -467,7 +468,7 @@ impl WebGpuState {
                     &texture_bind_group_layout,
                     &texture_bind_group_layout,
                 ],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -505,8 +506,8 @@ impl WebGpuState {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
             cache: None,
+            multiview_mask: None,
         });
 
         Ok(Self {
