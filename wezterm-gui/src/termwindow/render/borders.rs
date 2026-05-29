@@ -90,7 +90,7 @@ impl crate::TermWindow {
     ) -> euclid::Rect<f32, window::PixelUnit> {
         let mut base_rect = self.compute_background_rect(pos, padding_left, padding_top, border, top_pixel_y);
         if pos.is_floating {
-            base_rect.size.width = base_rect.size.width + self.get_floating_pane_scroll_thumb_width() as f32;
+            base_rect.size.width += self.get_floating_pane_scroll_thumb_width() as f32;
         };
         base_rect
     }
@@ -135,13 +135,13 @@ impl crate::TermWindow {
             x,
             y,
             // Width calculation
-            if pos.left + pos.width >= self.terminal_size.cols as usize {
+            if pos.left + pos.width >= self.terminal_size.cols {
                 self.dimensions.pixel_width as f32 - x
             } else {
                 (pos.width as f32 * cell_width) + width_delta
             },
             // Height calculation
-            if pos.top + pos.height >= self.terminal_size.rows as usize {
+            if pos.top + pos.height >= self.terminal_size.rows {
                 self.dimensions.pixel_height as f32 - y
             } else {
                 (pos.height as f32 * cell_height) + height_delta

@@ -70,7 +70,7 @@ impl GetText {
 
         let lines = client
             .get_lines(codec::GetLines {
-                pane_id: pane_id.into(),
+                pane_id,
                 lines: vec![start_line..end_line + 1],
             })
             .await?;

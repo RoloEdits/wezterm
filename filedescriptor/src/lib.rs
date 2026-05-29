@@ -217,7 +217,8 @@ impl OwnedHandle {
     /// The returned handle has a separate lifetime from the source, but
     /// references the same object at the kernel level.
     pub fn try_clone(&self) -> Result<Self> {
-        Self::dup_impl(self, self.handle_type)
+        self.handle_type;
+        Self::dup_impl(self, ())
     }
 
     /// Attempt to duplicate the underlying handle from an object that is
@@ -228,7 +229,7 @@ impl OwnedHandle {
     /// The returned handle has a separate lifetime from the source, but
     /// references the same object at the kernel level.
     pub fn dup<F: AsRawFileDescriptor>(f: &F) -> Result<Self> {
-        Self::dup_impl(f, Default::default())
+        Self::dup_impl(f, ())
     }
 }
 

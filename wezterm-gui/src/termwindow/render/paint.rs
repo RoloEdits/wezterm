@@ -127,7 +127,7 @@ impl crate::TermWindow {
                     }
                     _ => {
                         self.scheduled_animation.borrow_mut().replace(next_due);
-                        let window = self.window.clone().take().unwrap();
+                        let window = self.window.clone().unwrap();
                         promise::spawn::spawn(async move {
                             Timer::at(next_due).await;
                             let win = window.clone();
@@ -149,7 +149,7 @@ impl crate::TermWindow {
                 let mut ui_items = computed.ui_items();
 
                 let gl_state = self.render_state.as_ref().unwrap();
-                self.render_element(&computed, gl_state, None)?;
+                self.render_element(computed, gl_state, None)?;
 
                 self.ui_items.append(&mut ui_items);
             }
@@ -253,15 +253,14 @@ impl crate::TermWindow {
 
         let mut floating_pane_layers = float_layer.quad_allocator();
         for pos in panes {
-            if !self.is_floating_pane_active() {
-                if pos.is_active {
+            if !self.is_floating_pane_active()
+                && pos.is_active {
                     self.update_text_cursor(&pos);
                     if focused {
                         pos.pane.advise_focus();
                         mux::Mux::get().record_focus_for_current_identity(pos.pane.pane_id());
                     }
                 }
-            }
             self.paint_pane(&pos, &mut layers).context("paint_pane")?;
         }
 

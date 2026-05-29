@@ -93,7 +93,7 @@ lazy_static::lazy_static! {
     static ref POSITION: Mutex<Option<GuiPosition>> = Mutex::new(None);
 }
 
-pub const ICON_DATA: &'static [u8] = include_bytes!("../../../assets/icon/terminal.png");
+pub const ICON_DATA: &[u8] = include_bytes!("../../../assets/icon/terminal.png");
 
 pub fn set_window_position(pos: GuiPosition) {
     POSITION.lock().unwrap().replace(pos);
@@ -502,7 +502,7 @@ impl TermWindow {
 
                 let can_close = mux
                     .get_window(mux_window_id)
-                    .map_or(false, |w| w.can_close_without_prompting());
+                    .is_some_and(|w| w.can_close_without_prompting());
                 if can_close {
                     mux.kill_window(self.mux_window_id);
                     window.close();
@@ -584,7 +584,7 @@ impl TermWindow {
 impl TermWindow {
     pub async fn new_window(mux_window_id: MuxWindowId) -> anyhow::Result<()> {
         let config = configuration();
-        let dpi = config.dpi.unwrap_or_else(|| ::window::default_dpi()) as usize;
+        let dpi = config.dpi.unwrap_or_else(::window::default_dpi) as usize;
         let fontconfig = Rc::new(FontConfiguration::new(Some(config.clone()), dpi)?);
 
         let mux = Mux::get();
@@ -863,12 +863,12 @@ impl TermWindow {
                     ResizeIncrementCalculator {
                         x: myself.render_metrics.cell_size.width as u16,
                         y: myself.render_metrics.cell_size.height as u16,
-                        padding_left: padding_left,
-                        padding_top: padding_top,
-                        padding_right: padding_right,
-                        padding_bottom: padding_bottom,
-                        border: border,
-                        tab_bar_height: tab_bar_height,
+                        padding_left,
+                        padding_top,
+                        padding_right,
+                        padding_bottom,
+                        border,
+                        tab_bar_height,
                     }
                     .into(),
                 );
@@ -1030,7 +1030,7 @@ impl TermWindow {
                 };
                 let urls = urls
                     .iter()
-                    .map(|url| self.config.quote_dropped_files.escape(&url.to_string()))
+                    .map(|url| self.config.quote_dropped_files.escape(url.as_ref()))
                     .collect::<Vec<_>>()
                     .join(" ")
                     + " ";
@@ -1073,7 +1073,7 @@ impl TermWindow {
         }
 
         let mut frame = glium::Frame::new(
-            Rc::clone(&gl),
+            Rc::clone(gl),
             (
                 self.dimensions.pixel_width as u32,
                 self.dimensions.pixel_height as u32,
@@ -1088,12 +1088,9 @@ impl TermWindow {
         match self.do_paint_webgpu_impl() {
             Ok(ok) => Ok(ok),
             Err(err) => {
-                match err.downcast_ref::<wgpu::SurfaceError>() {
-                    Some(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                        self.webgpu.as_mut().unwrap().resize(self.dimensions);
-                        return self.do_paint_webgpu_impl();
-                    }
-                    _ => {}
+                if let Some(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) = err.downcast_ref::<wgpu::SurfaceError>() {
+                    self.webgpu.as_mut().unwrap().resize(self.dimensions);
+                    return self.do_paint_webgpu_impl();
                 }
                 Err(err)
             }
@@ -1371,9 +1368,7 @@ impl TermWindow {
     fn clear_all_overlays(&mut self) {
         let overlay_panes_to_cancel = self
             .pane_state
-            .borrow()
-            .iter()
-            .filter_map(|(_, state)| state.overlay.as_ref().map(|overlay| overlay.pane.pane_id()))
+            .borrow().values().filter_map(|state| state.overlay.as_ref().map(|overlay| overlay.pane.pane_id()))
             .collect::<Vec<_>>();
 
         for pane_id in overlay_panes_to_cancel {
@@ -1537,7 +1532,7 @@ impl TermWindow {
             | MuxNotification::Empty
             | MuxNotification::WindowWorkspaceChanged(_) => return true,
             MuxNotification::Alert {
-                alert: Alert::PaletteChanged { .. },
+                alert: Alert::PaletteChanged,
                 ..
             } => {
                 // fall through
@@ -1660,7 +1655,6 @@ impl TermWindow {
                 // Flag that we want to run again when the currently
                 // executing event calls finish_window_event().
                 *state = EventState::InProgressWithQueued(pane_id);
-                return;
             }
             EventState::InProgressWithQueued(other_pane) => {
                 // We've already got one copy executing and another
@@ -1675,7 +1669,6 @@ impl TermWindow {
                         other_pane
                     );
                 }
-                return;
             }
             EventState::None => {
                 // Nothing pending, so schedule a call now
@@ -1803,7 +1796,7 @@ impl TermWindow {
         self.invalidate_modal();
         self.input_map = InputMap::new(&config);
         self.leader_is_down = None;
-        self.render_state.as_mut().map(|rs| rs.config_changed());
+        if let Some(rs) = self.render_state.as_mut() { rs.config_changed() }
         let dimensions = self.dimensions;
 
         if let Err(err) = self.fonts.config_changed(&config) {
@@ -1830,7 +1823,7 @@ impl TermWindow {
             }
         }
 
-        if let Some(window) = self.window.as_ref().map(|w| w.clone()) {
+        if let Some(window) = self.window.clone() {
             self.load_os_parameters();
             self.apply_scale_change(&dimensions, self.fonts.get_font_scale());
             self.apply_dimensions(&dimensions, None, &window);
@@ -1875,7 +1868,7 @@ impl TermWindow {
     }
 
     fn get_modal(&self) -> Option<Rc<dyn Modal>> {
-        self.modal.borrow().as_ref().map(|m| Rc::clone(&m))
+        self.modal.borrow().as_ref().map(Rc::clone)
     }
 
     fn update_scrollbar(&mut self) {
@@ -1916,7 +1909,7 @@ impl TermWindow {
             None => return false,
         };
 
-        return window_id == self.mux_window_id;
+        window_id == self.mux_window_id
     }
 
     fn emit_user_var_event(&mut self, pane_id: PaneId, name: String, value: String) {
@@ -1993,7 +1986,7 @@ impl TermWindow {
         let hovering_in_tab_bar = match &self.current_mouse_event {
             Some(event) => {
                 let mouse_y = event.coords.y as f32;
-                mouse_y >= tab_bar_y as f32 && mouse_y < tab_bar_y as f32 + tab_bar_height
+                mouse_y >= tab_bar_y && mouse_y < tab_bar_y + tab_bar_height
             }
             None => false,
         };
@@ -2029,11 +2022,11 @@ impl TermWindow {
 
         let title = match config::run_immediate_with_lua_config(|lua| {
             if let Some(lua) = lua {
-                let tabs = lua.create_sequence_from(tabs.clone().into_iter())?;
-                let panes = lua.create_sequence_from(panes.clone().into_iter())?;
+                let tabs = lua.create_sequence_from(tabs.clone())?;
+                let panes = lua.create_sequence_from(panes.clone())?;
 
                 let v = config::lua::emit_sync_callback(
-                    &*lua,
+                    &lua,
                     (
                         "format-window-title".to_string(),
                         (
@@ -2047,7 +2040,7 @@ impl TermWindow {
                 )?;
                 match &v {
                     mlua::Value::Nil => Ok(None),
-                    _ => Ok(Some(String::from_lua(v, &*lua)?)),
+                    _ => Ok(Some(String::from_lua(v, &lua)?)),
                 }
             } else {
                 Ok(None)
@@ -2197,7 +2190,7 @@ impl TermWindow {
         let max = window.len();
 
         let tab_idx = if tab_idx < 0 {
-            max.saturating_sub(tab_idx.abs() as usize)
+            max.saturating_sub(tab_idx.unsigned_abs())
         } else {
             tab_idx as usize
         };
@@ -2481,7 +2474,7 @@ impl TermWindow {
         let cache = self
             .semantic_zones
             .entry(pane.pane_id())
-            .or_insert_with(SemanticZoneCache::default);
+            .or_default();
 
         let seqno = pane.get_current_seqno();
         if cache.seqno != seqno {
@@ -2513,7 +2506,7 @@ impl TermWindow {
             .get_viewport(pane.pane_id())
             .unwrap_or(dims.physical_top);
         let zone = {
-            let zones = self.get_semantic_prompt_zones(&pane);
+            let zones = self.get_semantic_prompt_zones(pane);
             let idx = match zones.binary_search(&position) {
                 Ok(idx) | Err(idx) => idx,
             };
@@ -2617,7 +2610,7 @@ impl TermWindow {
             }
         }
 
-        let window = self.window.as_ref().map(|w| w.clone());
+        let window = self.window.clone();
 
         match assignment {
             ActivateKeyTable {
@@ -2751,7 +2744,7 @@ impl TermWindow {
             ResetFontSize => self.reset_font_size(),
             ResetFontAndWindowSize => {
                 if let Some(w) = window.as_ref() {
-                    self.reset_font_and_window_size(&w)?
+                    self.reset_font_and_window_size(w)?
                 }
             }
             ActivateTab(n) => {
@@ -2902,19 +2895,16 @@ impl TermWindow {
                         )?;
                         self.assign_overlay_for_pane(pane.pane_id(), search);
                     }
-                    self.pane_state(pane.pane_id())
+                    if let Some(overlay) = self.pane_state(pane.pane_id())
                         .overlay
-                        .as_mut()
-                        .map(|overlay| {
-                            overlay.key_table_state.activate(KeyTableArgs {
+                        .as_mut() { overlay.key_table_state.activate(KeyTableArgs {
                                 name: "search_mode",
                                 timeout_milliseconds: None,
                                 replace_current,
                                 one_shot: false,
                                 until_unknown: false,
                                 prevent_fallback: false,
-                            });
-                        });
+                            }); }
                 }
             }
             QuickSelect => {
@@ -2952,19 +2942,16 @@ impl TermWindow {
                         )?;
                         self.assign_overlay_for_pane(pane.pane_id(), copy);
                     }
-                    self.pane_state(pane.pane_id())
+                    if let Some(overlay) = self.pane_state(pane.pane_id())
                         .overlay
-                        .as_mut()
-                        .map(|overlay| {
-                            overlay.key_table_state.activate(KeyTableArgs {
+                        .as_mut() { overlay.key_table_state.activate(KeyTableArgs {
                                 name: "copy_mode",
                                 timeout_milliseconds: None,
                                 replace_current,
                                 one_shot: false,
                                 until_unknown: false,
                                 prevent_fallback: false,
-                            });
-                        });
+                            }); }
                 }
             }
             AdjustPaneSize(direction, amount) => {
@@ -3074,7 +3061,7 @@ impl TermWindow {
                 mux.set_active_workspace(&name);
 
                 if mux.iter_windows_in_workspace(&name).is_empty() {
-                    let spawn = spawn.as_ref().map(|s| s.clone()).unwrap_or_default();
+                    let spawn = spawn.clone().unwrap_or_default();
                     let size = self.terminal_size;
                     let term_config = Arc::new(TermConfig::with_config(self.config.clone()));
                     let src_window_id = self.mux_window_id;
@@ -3467,10 +3454,7 @@ impl TermWindow {
     /// be returned.
     pub fn get_active_pane_or_overlay(&self) -> Option<Arc<dyn Pane>> {
         let mux = Mux::get();
-        let tab = match mux.get_active_tab_for_window(self.mux_window_id) {
-            Some(tab) => tab,
-            None => return None,
-        };
+        let tab = mux.get_active_tab_for_window(self.mux_window_id)?;
 
         let tab_id = tab.tab_id();
 
@@ -3499,7 +3483,7 @@ impl TermWindow {
             None => return false,
         };
 
-        return tab.is_floating_pane_active();
+        tab.is_floating_pane_active()
     }
 
     fn get_splits(&mut self) -> Vec<PositionedSplit> {
@@ -3596,8 +3580,8 @@ impl TermWindow {
                 top: 0,
                 width: size.cols as _,
                 height: size.rows as _,
-                pixel_width: size.cols as usize * self.render_metrics.cell_size.width as usize,
-                pixel_height: size.rows as usize * self.render_metrics.cell_size.height as usize,
+                pixel_width: size.cols * self.render_metrics.cell_size.width as usize,
+                pixel_height: size.rows * self.render_metrics.cell_size.height as usize,
                 pane,
             }]
         } else {
@@ -3630,10 +3614,7 @@ impl TermWindow {
 
     fn get_floating_pane_to_render(&self) -> Option<PositionedPane> {
         let mux = Mux::get();
-        let tab = match mux.get_active_tab_for_window(self.mux_window_id) {
-            Some(tab) => tab,
-            None => return None,
-        };
+        let tab = mux.get_active_tab_for_window(self.mux_window_id)?;
 
         if self
             .tab_state(tab.tab_id())

@@ -458,7 +458,7 @@ impl HarfbuzzShaper {
         //  log::error!("do_shape: font_idx={} {:?} {:#?}", font_idx, &s[range.clone()], info_clusters);
         log::debug!("font_idx={font_idx} info_clusters: {:#?}", info_clusters);
 
-        let mut direct_clusters = 0;
+        // let mut direct_clusters = 0;
 
         for infos in &info_clusters {
             let cluster_info = cluster_resolver
@@ -536,7 +536,7 @@ impl HarfbuzzShaper {
                 let glyph = make_glyphinfo(substr, weighted_cell_width, font_idx, info);
 
                 cluster.push(glyph);
-                direct_clusters += 1;
+                // direct_clusters += 1;
             }
         }
 
@@ -580,7 +580,7 @@ impl FontShaper for HarfbuzzShaper {
         range: Option<Range<usize>>,
         presentation_width: Option<&PresentationWidth>,
     ) -> anyhow::Result<Vec<GlyphInfo>> {
-        let range = range.unwrap_or_else(|| 0..text.len());
+        let range = range.unwrap_or(0..text.len());
 
         log::trace!(
             "shape {range:?} `{}` with presentation={presentation:?}",
@@ -820,7 +820,7 @@ impl<'a> ClusterResolver<'a> {
             Some(pw) => {
                 let cell_idx = pw.byte_to_cell_idx(start);
                 let actual_start = self.start_by_cell_idx.get(&cell_idx)?;
-                self.map.get_mut(&actual_start)
+                self.map.get_mut(actual_start)
             }
             None => self.map.get_mut(&start),
         }
@@ -831,7 +831,7 @@ impl<'a> ClusterResolver<'a> {
             Some(pw) => {
                 let cell_idx = pw.byte_to_cell_idx(start);
                 let actual_start = self.start_by_cell_idx.get(&cell_idx)?;
-                self.map.get(&actual_start)
+                self.map.get(actual_start)
             }
             None => self.map.get(&start),
         }

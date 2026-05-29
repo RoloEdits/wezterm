@@ -250,7 +250,7 @@ impl XWindowInner {
                 self.dpi
             );
             self.dpi = dpi;
-            self.last_wm_state = self.get_window_state().unwrap_or(WindowState::default());
+            self.last_wm_state = self.get_window_state().unwrap_or_default();
             self.events.dispatch(WindowEvent::Resized {
                 dimensions: Dimensions {
                     pixel_width: self.width as usize,
@@ -272,8 +272,8 @@ impl XWindowInner {
             .send_request_no_reply_log(&xcb::x::ConfigureWindow {
                 window: self.child_id,
                 value_list: &[
-                    xcb::x::ConfigWindow::Width(width as u32),
-                    xcb::x::ConfigWindow::Height(height as u32),
+                    xcb::x::ConfigWindow::Width(width),
+                    xcb::x::ConfigWindow::Height(height),
                 ],
             });
         // send_request_no_reply_log() is synchronous, so no further synchronization required
@@ -367,7 +367,7 @@ impl XWindowInner {
                         self.height
                     );
 
-                    let window_state = self.get_window_state().unwrap_or(WindowState::default());
+                    let window_state = self.get_window_state().unwrap_or_default();
 
                     if self.width != geom.width()
                         || self.height != geom.height()
@@ -397,8 +397,7 @@ impl XWindowInner {
                 let window_id = self.window_id;
                 let max_fps = self.config.max_fps;
                 promise::spawn::spawn(async move {
-                    async_io::Timer::after(std::time::Duration::from_millis(1000 / max_fps as u64))
-                        .await;
+                    async_io::Timer::after(std::time::Duration::from_millis(1000 / max_fps)).await;
                     XConnection::with_window_inner(window_id, move |inner| {
                         inner.paint_throttled = false;
                         if inner.invalidated {
@@ -470,8 +469,8 @@ impl XWindowInner {
 
         let event = MouseEvent {
             kind,
-            coords: Point::new(event_x.try_into().unwrap(), event_y.try_into().unwrap()),
-            screen_coords: ScreenPoint::new(root_x.try_into().unwrap(), root_y.try_into().unwrap()),
+            coords: Point::new(event_x.into(), event_y.into()),
+            screen_coords: ScreenPoint::new(root_x.into(), root_y.into()),
             modifiers: xkeysyms::modifiers_from_state(state.bits()),
             mouse_buttons: MouseButtons::default(),
         };
@@ -546,7 +545,7 @@ impl XWindowInner {
         self.width = width;
         self.height = height;
         self.dpi = dpi;
-        self.last_wm_state = self.get_window_state().unwrap_or(WindowState::default());
+        self.last_wm_state = self.get_window_state().unwrap_or_default();
 
         let dimensions = Dimensions {
             pixel_width: self.width as usize,
@@ -568,17 +567,17 @@ impl XWindowInner {
         use xcb::XidNew;
         let conn = self.conn();
         let msgtype_name = conn.atom_name(msgtype);
-        let srcwin = unsafe { xcb::x::Window::new(data[0]) };
+        let srcwin = xcb::x::Window::new(data[0]);
         if msgtype == conn.atom_xdndenter {
             self.drag_and_drop.src_window = Some(srcwin);
             let moretypes = data[1] & 0x01 != 0;
-            let xdndversion = data[1] >> 24 as u8;
+            let xdndversion = data[1] >> 24_u8;
             log::trace!("ClientMessage {msgtype_name}, Version {xdndversion}, more than 3 types: {moretypes}");
             if !moretypes {
                 self.drag_and_drop.src_types = data[2..]
-                    .into_iter()
+                    .iter()
                     .filter(|&&x| x != 0)
-                    .map(|&x| unsafe { Atom::new(x) })
+                    .map(|&x| Atom::new(x))
                     .collect();
             } else {
                 self.drag_and_drop.src_types =
@@ -622,8 +621,8 @@ impl XWindowInner {
             log::error!("ClientMessage {msgtype_name} received, but no Xdnd in progress or source window mismatch");
         } else if msgtype == conn.atom_xdndposition {
             self.drag_and_drop.time = data[3];
-            let (x, y) = (data[2] >> 16 as u16, data[2] as u16);
-            self.drag_and_drop.src_action = unsafe { Atom::new(data[4]) };
+            let (x, y) = (data[2] >> 16_u16, data[2] as u16);
+            self.drag_and_drop.src_action = Atom::new(data[4]);
             self.drag_and_drop.target_action = conn.atom_xdndactioncopy;
             log::trace!(
                 "ClientMessage {msgtype_name}, ({x}, {y}), timestamp: {}, action: {}",
@@ -683,7 +682,7 @@ impl XWindowInner {
                 });
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn dispatch_event(&mut self, event: &Event) -> anyhow::Result<()> {
@@ -721,14 +720,8 @@ impl XWindowInner {
             Event::X(xcb::x::Event::MotionNotify(motion)) => {
                 let event = MouseEvent {
                     kind: MouseEventKind::Move,
-                    coords: Point::new(
-                        motion.event_x().try_into().unwrap(),
-                        motion.event_y().try_into().unwrap(),
-                    ),
-                    screen_coords: ScreenPoint::new(
-                        motion.root_x().try_into().unwrap(),
-                        motion.root_y().try_into().unwrap(),
-                    ),
+                    coords: Point::new(motion.event_x().into(), motion.event_y().into()),
+                    screen_coords: ScreenPoint::new(motion.root_x().into(), motion.root_y().into()),
                     modifiers: xkeysyms::modifiers_from_state(motion.state().bits()),
                     mouse_buttons: MouseButtons::default(),
                 };
@@ -778,7 +771,7 @@ impl XWindowInner {
                     }
                 } else if msg.r#type() == conn.atom_protocols {
                     if let ClientMessageData::Data32(data) = msg.data() {
-                        let protocol_atom = unsafe { Atom::new(data[0]) };
+                        let protocol_atom = Atom::new(data[0]);
                         log::trace!(
                             "ClientMessage {type_atom_name}/{}",
                             conn.atom_name(protocol_atom)

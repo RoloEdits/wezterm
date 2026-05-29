@@ -201,7 +201,7 @@ impl OwnedHandle {
     }
 
     pub(crate) fn probe_handle_type(_handle: RawFileDescriptor) -> HandleType {
-        ()
+        
     }
 }
 

@@ -132,7 +132,7 @@ fn run() -> anyhow::Result<()> {
             // being propagated to its children when they spawn
             if let Some(fd) = pid_file {
                 cmd.arg("--pid-file-fd");
-                cmd.arg(&fd.to_string());
+                cmd.arg(fd.to_string());
             }
         }
         if opts.skip_config {
@@ -144,7 +144,7 @@ fn run() -> anyhow::Result<()> {
         }
         for (name, value) in &opts.config_override {
             cmd.arg("--config");
-            cmd.arg(&format!("{name}={value}"));
+            cmd.arg(format!("{name}={value}"));
         }
         if let Some(cwd) = opts.cwd {
             cmd.arg("--cwd");

@@ -106,7 +106,7 @@ impl crate::TermWindow {
             });
 
         let background_rect = self.compute_background_rect_with_scrollbar(
-            &pos, padding_top, padding_left, &border, top_pixel_y);
+            pos, padding_top, padding_left, &border, top_pixel_y);
 
         if self.window_background.is_empty() {
             // Per-pane, palette-specified background
@@ -216,7 +216,7 @@ impl crate::TermWindow {
 
             // Adjust the scrollbar thumb position
             let config = &self.config;
-            let padding = self.effective_right_padding(&config) as f32;
+            let padding = self.effective_right_padding(config) as f32;
 
             // Register the scroll bar location
             self.ui_items.push(UIItem {
@@ -258,7 +258,7 @@ impl crate::TermWindow {
 
         let (selrange, rectangular) = {
             let sel = self.selection(pos.pane.pane_id());
-            (sel.range.clone(), sel.rectangular)
+            (sel.range, sel.rectangular)
         };
 
         let start = Instant::now();
@@ -462,10 +462,10 @@ impl crate::TermWindow {
                                 pixel_width: self.dims.cols as f32
                                     * self.term_window.render_metrics.cell_size.width as f32,
                                 stable_line_idx: Some(stable_row),
-                                line: &line,
+                                line,
                                 selection: selrange.clone(),
-                                cursor: &self.cursor,
-                                palette: &self.palette,
+                                cursor: self.cursor,
+                                palette: self.palette,
                                 dims: &self.dims,
                                 config: &self.term_window.config,
                                 cursor_border_color: self.cursor_border_color,
@@ -599,16 +599,16 @@ impl crate::TermWindow {
             x,
             y,
             // Go all the way to the right edge if we're right-most
-            if pos.left + pos.width >= self.terminal_size.cols as usize {
+            if pos.left + pos.width >= self.terminal_size.cols {
                 self.dimensions.pixel_width as f32 - x
             } else {
                 (pos.width as f32 * cell_width) + width_delta
             },
             // Go all the way to the bottom if we're bottom-most
-            if pos.top + pos.height >= self.terminal_size.rows as usize {
+            if pos.top + pos.height >= self.terminal_size.rows {
                 self.dimensions.pixel_height as f32 - y
             } else {
-                (pos.height as f32 * cell_height) + height_delta as f32
+                (pos.height as f32 * cell_height) + height_delta
             },
         );
 

@@ -40,13 +40,13 @@ impl PointerHandler for WaylandState {
                 self.active_surface_id = RefCell::new(Some(surface_id.clone()));
                 pstate.active_surface_id = Some(surface_id);
             }
-            if let Some(serial) = event_serial(&evt) {
+            if let Some(serial) = event_serial(evt) {
                 *self.last_serial.borrow_mut() = serial;
                 pstate.serial = serial;
             }
             if let Some(pending) = self
                 .surface_to_pending
-                .get(&self.active_surface_id.borrow().as_ref().unwrap())
+                .get(self.active_surface_id.borrow().as_ref().unwrap())
             {
                 let mut pending = pending.lock().unwrap();
                 if pending.queue(evt) {
